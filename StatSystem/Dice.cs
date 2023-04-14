@@ -20,11 +20,13 @@ namespace StatSystem
             get => m_DiceNumber;
             set => m_DiceNumber = value;
         }
+        
         public DiceType DiceType
         {
             get => m_DiceType;
             set => m_DiceType = value;
         }
+
         public int MaximalValue
         {
             get
@@ -59,17 +61,21 @@ namespace StatSystem
         {
             int maxValue = 0;
             DiceType maxDiceType = DiceType.Flat;
+            Dice tempD = ScriptableObject.CreateInstance<Dice>();
 
             foreach (var pair in diceTotals)
             {
-                if (pair.Value * pair.Key.MaximalValue() > maxValue)
+                tempD.DiceType = pair.Key;
+                int tempMaxValue = pair.Value * tempD.MaximalValue;
+                
+                if (tempMaxValue > maxValue)
                 {
-                    maxValue = pair.Value * pair.Key.MaximalValue();
+                    maxValue = tempMaxValue;
                     maxDiceType = pair.Key;
                 }
             }
 
-            DiceNumber = maxValue / maxDiceType.MaximalValue();
+            DiceNumber = maxValue / tempD.MaximalValue;
             DiceType = maxDiceType;
         }
     }
