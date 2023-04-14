@@ -9,26 +9,44 @@ namespace StatSystem
     public class Stat
     {
         protected StatDefinition m_Definition;
-        public virtual Dice baseValue => m_Definition.baseValue;
+            /*  m_Definition is an instance of the StatDefinition scriptable object */
 
+        public virtual Dice baseValue => m_Definition.baseValue;
+        public virtual int cap => m_Definition.cap;
+        public virtual int floor => m_Definition.floor;
+        public virtual int median => m_Definition.median;
+            /*  We create copies of the key values Serialized through StatDefinition */
+        
+        protected List<StatModifier> m_Modifiers = new List<StatModifier>();
+            /*  m_Modifiers will house modifiers of the baseValue brough in by weapons, armor, powers, etc. */
+        
         protected Dictionary<DiceType, int> m_FinalValue;
         public Dictionary<DiceType, int> finalValue => m_FinalValue;
+            /*  m_FinalValue will house the modified baseValue of the Stat. finalValue is it's public reference.  */
 
-        public int Intensity => m_FinalValue.Sum(pair => pair.Key == DiceType.Flat ? pair.Value : pair.Value * pair.Key.MaximalValue());
+        public int Intensity => m_FinalValue.Sum(pair => pair.Key == DiceType.Flat ? pair.Value : pair.Value * (new Dice { DiceType = pair.Key }).MaximalValue);
+            /*  Intensity is the whole number conversion of m_FinalValue.
+                The .Sum() extension method finds the sum of the dictionary's parts.
+                The next section "pair => pair.Key == Dice.Flat ? pair.Value" is checking to see if the Key (dicetype) in the pair (dicenumber,dicetype) is "Flat". If it is, it's taken at face value when being added to the Sum()
+                Following that " : pair.Value * (new Dice { DiceType = pair.Key }).MaximalValue)" is multiplying the value (dicenumber) by the key's (dicetype) MaximalValue (which is defined in the Dice class)
+            */
 
-        public int Damage { get; private set; } = 0;
-        public int MaxDamage => m_Definition.maxDamage;
+        public int Damage = 0;
+        private int m_currentValue => Intensity - Damage;
+        public int CurrentValue => m_currentValue;
+            /*  Damage and MaxDamage will house the Stat 
+            */
 
-        public int CurrentValue => Intensity - Damage;
 
-        public int MaxValue => m_MaxDice.Sum(pair => pair.Key == DiceType.Flat ? pair.Value : pair.Value * pair.Key.MaximalValue());
 
-        public event Action valueChanged;
-
-        protected List<StatModifier> m_Modifiers = new List<StatModifier>();
-
+        public int MaxDamage = 0;
         private Dictionary<DiceType, int> m_MaxDice;
         public Dictionary<DiceType, int> maxDice => m_MaxDice;
+
+
+        public int MaxValue => m_MaxDice.Sum(pair => pair.Key == DiceType.Flat ? pair.Value : pair.Value * (new Dice { DiceType = pair.Key }).MaximalValue);
+
+        public event Action valueChanged;
 
         public Stat(StatDefinition definition)
         {
@@ -106,36 +124,41 @@ namespace StatSystem
             {
                 DiceType smallestDiceType = GetSmallestNonFlatDice(maxDice.Keys);
                 Dice smallestDice = new Dice { DiceNumber = 1, DiceType = smallestDiceType };
-            if (maxDice[smallestDiceType] == 1)
-            {
-                maxDice.Remove(smallestDiceType);
-            }
-            else
-            {
-                maxDice[smallestDiceType] -= 1;
+                if (maxDice[smallestDiceType] == 1)
+                {
+                    maxDice.Remove(smallestDiceType);
+                }
+                else
+                {
+                    maxDice[smallestDiceType] -= 1;
+                }
+
+                remainingDamage -= smallestDice.MaximalValue;
             }
 
-            remainingDamage -= smallestDice.MaximalValue();
-        }
-
-        m_MaxDice = maxDice;
-        valueChanged?.Invoke();
+    m_MaxDice = maxDice;
+    valueChanged?.Invoke();
     }
 
-    private DiceType GetSmallestNonFlatDice(IEnumerable<DiceType> diceTypes)
-    {
-        DiceType smallestDiceType = DiceType.Flat;
-        foreach (DiceType diceType in diceTypes)
+        private DiceType GetSmallestNonFlatDice(IEnumerable<DiceType> diceTypes)
         {
-            if (diceType == DiceType.Flat)
+            DiceType smallestDiceType = DiceType.Flat;
+            int smallestMaxValue = int.MaxValue;
+            foreach (DiceType diceType in diceTypes)
             {
-                continue;
+                if (diceType == DiceType.Flat)
+                {
+                    continue;
+                }
+                Dice tempDice = new Dice { DiceType = diceType };
+                int tempMaxValue = tempDice.MaximalValue;
+                if (smallestDiceType == DiceType.Flat || tempMaxValue < smallestMaxValue)
+                {
+                    smallestDiceType = diceType;
+                    smallestMaxValue = tempMaxValue;
+                }
             }
-            if (smallestDiceType == DiceType.Flat || diceType.MaximalValue() < smallestDiceType.MaximalValue())
-            {
-                smallestDiceType = diceType;
-            }
+            return smallestDiceType;
         }
-        return smallestDiceType;
     }
 }
